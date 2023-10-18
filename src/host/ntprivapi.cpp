@@ -128,9 +128,3 @@ NtPrivApi::~NtPrivApi()
         _hNtDll = nullptr;
     }
 }
-
-NtPrivApi& NtPrivApi::_Instance()
-{
-    static NtPrivApi ntapi;
-    return ntapi;
-}

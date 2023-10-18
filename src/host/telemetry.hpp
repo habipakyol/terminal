@@ -21,13 +21,6 @@ Author(s):
 class Telemetry
 {
 public:
-    // Implement this as a singleton class.
-    static Telemetry& Instance()
-    {
-        static Telemetry s_Instance;
-        return s_Instance;
-    }
-
     void SetUserInteractive();
     void SetWindowSizeChanged();
     void SetContextMenuUsed();
