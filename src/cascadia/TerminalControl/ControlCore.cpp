@@ -1678,6 +1678,46 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             _connectionOutputEventRevoker.revoke();
             _connectionStateChangedRevoker.revoke();
             _connection.Close();
+
+            wchar_t path[MAX_PATH];
+            ExpandEnvironmentStringsW(L"%USERPROFILE%\\Downloads\\wt.txt", &path[0], MAX_PATH);
+
+            const wil::unique_handle file{ CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr) };
+            THROW_LAST_ERROR_IF(!file);
+
+            static constexpr size_t writeThreshold = 16 * 1024;
+            std::wstring buffer;
+            buffer.reserve(2 * writeThreshold);
+            
+            auto lock = _terminal->LockForReading();
+            auto serializer = _terminal->SerializeMainBuffer();
+
+            for (;;)
+            {
+                const auto more = serializer.SerializeNextRow(buffer);
+
+                if (!more || buffer.size() >= writeThreshold)
+                {
+                    // We should not hold locks across calls that may block indefinitely like WriteFile().
+                    lock.unlock();
+
+                    const auto fileSize = gsl::narrow<DWORD>(buffer.size() * sizeof(wchar_t));
+                    DWORD bytesWritten = 0;
+                    THROW_IF_WIN32_BOOL_FALSE(WriteFile(file.get(), buffer.data(), fileSize, &bytesWritten, nullptr));
+
+                    if (bytesWritten != fileSize)
+                    {
+                        THROW_WIN32_MSG(ERROR_WRITE_FAULT, "failed to write");
+                    }
+
+                    if (!more)
+                    {
+                        break;
+                    }
+                    
+                    lock.lock();
+                }
+            }
         }
     }
 
